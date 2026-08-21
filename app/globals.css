@@ -3,6 +3,16 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Chart tokens. Validated with the data-viz palette validator against each
+     mode surface: light #059669 and dark #199e70 both pass the lightness band,
+     chroma floor and 3:1 contrast checks. Note the emerald-400 used for UI
+     accents FAILS the lightness band for chart marks, so marks use their own
+     token rather than reusing the accent. */
+  --chart-series: #059669;
+  --chart-grid: rgba(0, 0, 0, 0.08);
+  --chart-axis: rgba(0, 0, 0, 0.45);
+  --chart-surface: #ffffff;
 }
 
 @theme inline {
@@ -16,6 +26,12 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    /* Dark steps are selected for the dark surface, not an automatic flip. */
+    --chart-series: #199e70;
+    --chart-grid: rgba(255, 255, 255, 0.10);
+    --chart-axis: rgba(255, 255, 255, 0.5);
+    --chart-surface: #141414;
   }
 }
 
