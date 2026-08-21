@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+
+import { SetupRequiredError } from "@/lib/domain/errors";
 import { z } from "zod";
 
 import { DAYS_IN_WEEK } from "@/lib/domain/analytics";
@@ -25,6 +27,13 @@ export async function GET(request: NextRequest) {
   try {
     return NextResponse.json(await getWeeklyAnalytics(parsed.data.days));
   } catch (error) {
+    if (error instanceof SetupRequiredError) {
+      return NextResponse.json(
+        { error: error.message, remedy: error.remedy },
+        { status: 503 },
+      );
+    }
+
     console.error("[api/analytics/weekly] failed:", error);
 
     return NextResponse.json(

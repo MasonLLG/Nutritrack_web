@@ -1,9 +1,13 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { Disclaimer } from "@/app/components/Disclaimer";
 import { HeifaScorePanel } from "@/app/components/HeifaScorePanel";
 import { InsightCard } from "@/app/components/InsightCard";
+import { SetupRequired } from "@/app/components/SetupRequired";
+import { InsightSkeleton } from "@/app/components/Skeleton";
 import { WeeklySummaryPanel } from "@/app/components/WeeklySummaryPanel";
+import { SetupRequiredError } from "@/lib/domain/errors";
 import { getWeeklyAnalytics } from "@/lib/services/analytics";
 import { getHeifaDashboard } from "@/lib/services/heifa";
 import { getWeeklyInsight } from "@/lib/services/insights";
@@ -12,27 +16,7 @@ import { getWeeklyInsight } from "@/lib/services/insights";
 // prerendered at build time.
 export const dynamic = "force-dynamic";
 
-function EmptyState() {
-  return (
-    <div className="rounded-xl border border-black/10 bg-white p-6 dark:border-white/15 dark:bg-white/5">
-      <h2 className="text-base font-medium">No assessment data yet</h2>
-      <p className="mt-2 text-sm text-black/60 dark:text-white/60">
-        The HEIFA assessment for this user has not been imported. Run:
-      </p>
-      <pre className="mt-3 overflow-x-auto rounded-md bg-black/5 p-3 text-xs dark:bg-white/10">
-        npm run db:migrate &amp;&amp; npm run db:seed
-      </pre>
-    </div>
-  );
-}
-
-export default async function DashboardPage() {
-  const [view, analytics, insight] = await Promise.all([
-    getHeifaDashboard(),
-    getWeeklyAnalytics(),
-    getWeeklyInsight(),
-  ]);
-
+function PageShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 px-6 py-10">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -51,13 +35,63 @@ export default async function DashboardPage() {
         </Link>
       </header>
 
+      {children}
+    </main>
+  );
+}
+
+/**
+ * Streamed separately from the rest of the page.
+ *
+ * Generating the summary can call OpenAI, which is slow enough (seconds) to
+ * hold up the entire dashboard if awaited alongside the database reads. The
+ * Suspense boundary lets the chart and scores paint immediately while this
+ * arrives.
+ */
+async function WeeklyInsightSection() {
+  const insight = await getWeeklyInsight();
+
+  return <InsightCard initial={insight} />;
+}
+
+export default async function DashboardPage() {
+  let view: Awaited<ReturnType<typeof getHeifaDashboard>>;
+  let analytics: Awaited<ReturnType<typeof getWeeklyAnalytics>>;
+
+  try {
+    [view, analytics] = await Promise.all([
+      getHeifaDashboard(),
+      getWeeklyAnalytics(),
+    ]);
+  } catch (error) {
+    // An unseeded database is an expected first-run state with a known remedy,
+    // not a crash. Anything else is a real fault: let the error boundary have it.
+    if (error instanceof SetupRequiredError) {
+      return (
+        <PageShell>
+          <SetupRequired remedy={error.remedy} />
+        </PageShell>
+      );
+    }
+
+    throw error;
+  }
+
+  return (
+    <PageShell>
       <WeeklySummaryPanel analytics={analytics} />
 
-      <InsightCard initial={insight} />
+      <Suspense fallback={<InsightSkeleton />}>
+        <WeeklyInsightSection />
+      </Suspense>
 
-      {view === null ? <EmptyState /> : <HeifaScorePanel view={view} />}
+      {view === null ? (
+        <SetupRequired remedy="npm run db:seed" />
+      ) : (
+        <HeifaScorePanel view={view} />
+      )}
 
       <Disclaimer />
-    </main>
+    </PageShell>
   );
 }

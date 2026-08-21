@@ -1,12 +1,30 @@
 import Link from "next/link";
 
 import { RecordList } from "@/app/components/RecordList";
+import { SetupRequired } from "@/app/components/SetupRequired";
+import { SetupRequiredError } from "@/lib/domain/errors";
 import { listRecentRecords, sumMacros } from "@/lib/services/nutrition";
 
 export const dynamic = "force-dynamic";
 
 export default async function RecordsPage() {
-  const records = await listRecentRecords(200);
+  let records: Awaited<ReturnType<typeof listRecentRecords>>;
+
+  try {
+    records = await listRecentRecords(200);
+  } catch (error) {
+    if (error instanceof SetupRequiredError) {
+      return (
+        <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 px-6 py-10">
+          <h1 className="text-2xl font-semibold">Nutrition records</h1>
+          <SetupRequired remedy={error.remedy} />
+        </main>
+      );
+    }
+
+    throw error;
+  }
+
   const totals = sumMacros(records);
 
   return (

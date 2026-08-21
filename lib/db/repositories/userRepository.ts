@@ -3,6 +3,7 @@
  * like this one, and every one is parameterised with `?` placeholders.
  */
 import { getPool } from "@/lib/db/pool";
+import { SetupRequiredError } from "@/lib/domain/errors";
 import { toUser, type UserRow } from "@/lib/db/rows";
 import type { User } from "@/lib/types";
 
@@ -51,9 +52,11 @@ export async function getImplicitUser(): Promise<User> {
   const user = await findByUid(IMPLICIT_USER_UID);
 
   if (user === null) {
-    throw new Error(
-      `No user with uid "${IMPLICIT_USER_UID}" exists. ` +
-        `Run: npm run db:migrate && npm run db:seed`,
+    // Expected on a fresh database: the UI renders setup instructions rather
+    // than an error page.
+    throw new SetupRequiredError(
+      `No user with uid "${IMPLICIT_USER_UID}" exists yet.`,
+      "npm run db:migrate && npm run db:seed",
     );
   }
 

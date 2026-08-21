@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+
+import { SetupRequiredError } from "@/lib/domain/errors";
 import { z } from "zod";
 
 import {
@@ -40,6 +42,13 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ records: records.map(toDto) });
   } catch (error) {
+    if (error instanceof SetupRequiredError) {
+      return NextResponse.json(
+        { error: error.message, remedy: error.remedy },
+        { status: 503 },
+      );
+    }
+
     console.error("[api/records] GET failed:", error);
 
     return NextResponse.json(
@@ -72,6 +81,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ record: toDto(record) }, { status: 201 });
   } catch (error) {
+    if (error instanceof SetupRequiredError) {
+      return NextResponse.json(
+        { error: error.message, remedy: error.remedy },
+        { status: 503 },
+      );
+    }
+
     console.error("[api/records] POST failed:", error);
 
     return NextResponse.json(
